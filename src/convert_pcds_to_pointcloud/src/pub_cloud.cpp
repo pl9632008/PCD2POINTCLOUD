@@ -1,0 +1,229 @@
+#include <ros/ros.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <filesystem>
+#include <std_msgs/Bool.h>
+#include <std_msgs/String.h>
+#include <std_msgs/Int32.h>
+#include "geometry_msgs/PoseWithCovarianceStamped.h"
+#include <std_srvs/SetBool.h>
+
+#define BLUE "\033[1;34m"
+#define RESET "\033[0m"
+
+ros::Publisher pub_ini;
+
+std::vector<std::string> listFiles(const std::string& directory,const std::string & ext) {
+    std::vector<std::string> total_names;
+    std::filesystem::path p(directory);
+    for(auto & entry : std::filesystem::directory_iterator(p)){
+        if(entry.path().extension().string() == ext){
+            total_names.push_back(entry.path().string());
+        }
+    }
+    return total_names;
+}
+
+
+void finalNameCallback(const std_msgs::String::ConstPtr& msg){
+
+    std::string final_name = msg->data;
+    
+    std::vector<float> pose_array;
+    std::string map_path;
+    int interval;
+    ros::param::get("interval", interval);
+    ros::param::get(final_name, pose_array);
+    ros::param::get("map_path", map_path);
+
+
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    // std::string map_pcd ="";
+    // if (pcl::io::loadPCDFile(map_pcd, *cloud) < 0) {
+    //     ROS_ERROR_STREAM("Failed to parse pointcloud from file '" << map_pcd << "'");
+    //     continue;
+    // }
+
+    // geometry_msgs::PoseWithCovarianceStamped pose_msg;
+    // pose_msg.pose.pose.position.x = pose_array[0];
+    // pose_msg.pose.pose.position.y = pose_array[1];
+    // pose_msg.pose.pose.position.z = pose_array[2];
+    // pose_msg.pose.pose.orientation.x = pose_array[3];
+    // pose_msg.pose.pose.orientation.y = pose_array[4];
+    // pose_msg.pose.pose.orientation.z = pose_array[5];
+    // pose_msg.pose.pose.orientation.w = pose_array[6];
+    // pose_msg.header.stamp = ros::Time::now();
+    // pose_msg.header.frame_id = "map";
+    // pub_ini.publish(pose_msg);
+    // ROS_INFO("publish initial pose done!");
+
+
+    // std::string kill_process = "kill $(ps -aux | grep 'roslaunch fast_lio_localization' | grep -v grep | awk '{print $2}')";
+    // std::system(kill_process.c_str());
+    // ros::Duration(1.0).sleep();
+
+    // std::string start_pcl_ros = "rosrun pcl_ros pcd_to_pointcloud " + map_path + "/" + final_name + ".pcd " + std::to_string(interval) +" _frame_id:=map cloud_pcd:=/map";
+    // std::system(start_pcl_ros.c_str());
+    // ros::Duration(1.0).sleep();
+
+    // std::string start_localize = "roslaunch fast_lio_localization localization_horizon_test.launch";
+    // std::system(start_localize.c_str());
+    // ros::Duration(10.0).sleep();
+
+
+}
+
+bool processing_done = false;
+
+void doneCallback(const std_msgs::Bool::ConstPtr& msg) {
+    processing_done = msg->data;
+    ROS_INFO("pub_data = %d\n", processing_done);
+}
+
+void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
+    std::string cloud_topic;
+    nh.getParam("cloud_topic",  cloud_topic);
+
+    ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>(cloud_topic, 1);
+    ros::Subscriber done_sub = nh.subscribe("/processing_done", 1, doneCallback);
+    ros::Publisher pub_pose = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/pose_topic", 1);
+    ros::Publisher pub_name = nh.advertise<std_msgs::String>("/map_name", 1);
+    ros::Publisher pub_num = nh.advertise<std_msgs::Int32>("/map_num", 1);
+    ros::Subscriber sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
+    pub_ini = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
+
+
+    ros::ServiceClient client = nh.serviceClient<std_srvs::SetBool>("/set_bool");
+    std_srvs::SetBool srv;
+    srv.request.data = true;  
+
+    ROS_INFO("waiting for find_map start...");
+
+    while(!client.call(srv)){
+        ROS_WARN("Please roslaunch fast_lio_localization localization_horizon_test.launch !");
+        ros::Duration(1).sleep();
+
+    }
+    ROS_INFO(BLUE "Response: success=%s, message=%s" RESET, srv.response.success ? "true" : "false", srv.response.message.c_str());
+
+
+    ros::Rate rate(1);  
+
+    ros::Duration(1).sleep();
+
+    auto maps_size = maps.size();
+
+    for(auto map_pcd : maps){
+        std::string map_name = std::filesystem::path(map_pcd).stem().string();
+        std::vector<float> pose;
+        auto get_name_succeed = nh.getParam(map_name, pose);
+        if(!get_name_succeed){
+            maps_size -= 1 ;
+            ROS_WARN("%s does not have initial pose in config.yaml, passes this map!" , map_name.c_str());
+        }
+    }
+    
+    
+    std_msgs::Int32 num_msg;
+    num_msg.data = maps_size;
+    pub_num.publish(num_msg);
+ 
+    for (const auto& map_pcd : maps) {
+
+        std::string map_name = std::filesystem::path(map_pcd).stem().string();
+        ROS_INFO_STREAM(map_name);
+        std::vector<float> pose;
+
+        auto get_name_succeed = nh.getParam(map_name, pose);
+        if(!get_name_succeed){
+
+            ROS_WARN("%s does not have initial pose in config.yaml, passes this map!" , map_name.c_str());
+            continue;
+        }
+
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        if (pcl::io::loadPCDFile(map_pcd, *cloud) < 0) {
+            ROS_ERROR_STREAM("Failed to parse pointcloud from file '" << map_pcd << "'");
+            continue;
+        }
+   
+        std_msgs::String name_msg;
+        name_msg.data = map_name;
+        pub_name.publish(name_msg);
+
+
+        for(int i = 0 ; i < pose.size() ; i++){
+            ROS_INFO("%f ",pose[i]);
+        }
+        geometry_msgs::PoseWithCovarianceStamped pose_msg;
+        pose_msg.pose.pose.position.x = pose[0];
+        pose_msg.pose.pose.position.y = pose[1];
+        pose_msg.pose.pose.position.z = pose[2];
+        pose_msg.pose.pose.orientation.x = pose[3];
+        pose_msg.pose.pose.orientation.y = pose[4];
+        pose_msg.pose.pose.orientation.z = pose[5];
+        pose_msg.pose.pose.orientation.w = pose[6];
+        pose_msg.header.stamp = ros::Time::now();
+        pose_msg.header.frame_id = "map";
+
+        ROS_INFO("Current PoseWithCovarianceStamped: [%.2f, %.2f, %.2f], [%.2f, %.2f, %.2f, %.2f]",
+                pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z,
+                pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y,
+                pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
+
+        pub_pose.publish(pose_msg);    
+
+
+        sensor_msgs::PointCloud2 cloud_msg;
+        pcl::toROSMsg(*cloud, cloud_msg);
+
+        std::string frame_id;
+        nh.param<std::string>("frame_id", frame_id, "");
+        cloud_msg.header.frame_id = frame_id;
+        cloud_msg.header.stamp = ros::Time::now();  // 设置当前时间戳
+
+        ROS_INFO_STREAM(" * Loaded pointcloud from file: " << map_pcd);
+        ROS_INFO_STREAM(" * Number of points: " << cloud->width * cloud->height);
+        ROS_INFO_STREAM(" * Total size [bytes]: " << cloud_msg.data.size());
+        ROS_INFO_STREAM(" * Channel names: " << pcl::getFieldsList(cloud_msg));
+        
+
+        pub.publish(cloud_msg);
+        ROS_INFO_STREAM(" * pub cloud done!");
+
+
+        while (!processing_done) {
+            ros::spinOnce();
+            rate.sleep();
+        }
+
+        processing_done = false;  // 重置标志，准备发布下一个点云
+
+    }
+
+}
+
+
+int main(int argc, char* argv[]) {
+
+
+    ros::init(argc, argv, "pub_cloud");
+    ros::NodeHandle nh;
+
+    std::string map_path;
+    if (!nh.getParam("map_path", map_path)) {
+        ROS_ERROR("Failed to get parameter 'map_path'");
+        return 1;
+    }
+
+    auto maps = listFiles(map_path, ".pcd");
+
+    if (maps.empty()) {
+        ROS_WARN("No PCD files found in directory '%s'", map_path.c_str());
+    } else {
+        loadAndPublish(maps, nh);
+    }
+    ros::spin();
+
+    return 0;
+}
