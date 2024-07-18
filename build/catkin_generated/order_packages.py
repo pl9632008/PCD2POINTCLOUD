@@ -1,5 +1,0 @@
-# generated from catkin/cmake/template/order_packages.context.py.in
-source_root_dir = '/home/nvidia/wjd/pcd2point/src'
-whitelisted_packages = ''.split(';') if '' != '' else []
-blacklisted_packages = ''.split(';') if '' != '' else []
-underlay_workspaces = '/home/nvidia/wjd/pcd2point/devel;/home/nvidia/wjd/hdl_local/devel;/home/nvidia/wjd/livox2velodyne/devel;/home/nvidia/wjd/fastlio_local/devel;/home/nvidia/wjd/fastlio/devel;/home/nvidia/wjd/mid360_ros2/devel;/home/nvidia/wjd/liosam_mid360/devel;/home/nvidia/wjd/ws_livox/devel;/home/nvidia/wjd/LIO/devel;/home/nvidia/wjd/livox_calib/devel;/home/nvidia/wjd/linefit/devel;/home/nvidia/wjd/livox_driver/devel;/opt/ros/noetic'.split(';') if '/home/nvidia/wjd/pcd2point/devel;/home/nvidia/wjd/hdl_local/devel;/home/nvidia/wjd/livox2velodyne/devel;/home/nvidia/wjd/fastlio_local/devel;/home/nvidia/wjd/fastlio/devel;/home/nvidia/wjd/mid360_ros2/devel;/home/nvidia/wjd/liosam_mid360/devel;/home/nvidia/wjd/ws_livox/devel;/home/nvidia/wjd/LIO/devel;/home/nvidia/wjd/livox_calib/devel;/home/nvidia/wjd/linefit/devel;/home/nvidia/wjd/livox_driver/devel;/opt/ros/noetic' != '' else []

@@ -1,8 +1,0 @@
-prefix=/home/nvidia/wjd/pcd2point/install
-
-Name: convert_pcds_to_pointcloud
-Description: Description of convert_pcds_to_pointcloud
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
