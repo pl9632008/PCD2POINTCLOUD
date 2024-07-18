@@ -6,11 +6,13 @@
 #include <std_msgs/Int32.h>
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include <std_srvs/SetBool.h>
+#include <mutex>
 
 #define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
 ros::Publisher pub_ini;
+std::mutex mtx_done;
 
 std::vector<std::string> listFiles(const std::string& directory,const std::string & ext) {
     std::vector<std::string> total_names;
@@ -28,12 +30,12 @@ void finalNameCallback(const std_msgs::String::ConstPtr& msg){
 
     std::string final_name = msg->data;
     
-    std::vector<float> pose_array;
-    std::string map_path;
-    int interval;
-    ros::param::get("interval", interval);
-    ros::param::get(final_name, pose_array);
-    ros::param::get("map_path", map_path);
+    // std::vector<float> pose_array;
+    // std::string map_path;
+    // int interval;
+    // ros::param::get("interval", interval);
+    // ros::param::get(final_name, pose_array);
+    // ros::param::get("map_path", map_path);
 
 
     // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -75,6 +77,8 @@ void finalNameCallback(const std_msgs::String::ConstPtr& msg){
 bool processing_done = false;
 
 void doneCallback(const std_msgs::Bool::ConstPtr& msg) {
+
+    std::lock_guard<std::mutex> lock(mtx_done);
     processing_done = msg->data;
     ROS_INFO("pub_data = %d\n", processing_done);
 }
@@ -110,37 +114,31 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
 
     ros::Duration(1).sleep();
 
-    auto maps_size = maps.size();
+    std::vector<std::string> test_maps;
 
     for(auto map_pcd : maps){
         std::string map_name = std::filesystem::path(map_pcd).stem().string();
         std::vector<float> pose;
         auto get_name_succeed = nh.getParam(map_name, pose);
         if(!get_name_succeed){
-            maps_size -= 1 ;
             ROS_WARN("%s does not have initial pose in config.yaml, passes this map!" , map_name.c_str());
+        }else{
+            test_maps.push_back(map_pcd);
         }
     }
     
     
     std_msgs::Int32 num_msg;
-    num_msg.data = maps_size;
+    num_msg.data = test_maps.size();
     pub_num.publish(num_msg);
  
-    for (const auto& map_pcd : maps) {
+    for (const auto& map_pcd : test_maps) {
 
         std::string map_name = std::filesystem::path(map_pcd).stem().string();
-        ROS_INFO_STREAM(map_name);
+        ROS_INFO("map_name = %s", map_name.c_str());
         std::vector<float> pose;
-
-        auto get_name_succeed = nh.getParam(map_name, pose);
-        if(!get_name_succeed){
-
-            ROS_WARN("%s does not have initial pose in config.yaml, passes this map!" , map_name.c_str());
-            continue;
-        }
-
-
+        nh.getParam(map_name, pose);
+      
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
         if (pcl::io::loadPCDFile(map_pcd, *cloud) < 0) {
             ROS_ERROR_STREAM("Failed to parse pointcloud from file '" << map_pcd << "'");
@@ -191,12 +189,12 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         pub.publish(cloud_msg);
         ROS_INFO_STREAM(" * pub cloud done!");
 
-
+        
         while (!processing_done) {
             ros::spinOnce();
             rate.sleep();
         }
-
+        std::lock_guard<std::mutex> lock(mtx_done);
         processing_done = false;  // 重置标志，准备发布下一个点云
 
     }
