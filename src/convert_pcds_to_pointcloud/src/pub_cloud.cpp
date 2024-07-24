@@ -4,15 +4,31 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Int32.h>
-#include "geometry_msgs/PoseWithCovarianceStamped.h"
+#include <std_msgs/Float64.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <std_srvs/SetBool.h>
 #include <mutex>
-
+#include <iostream>
 #define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
-ros::Publisher pub_ini;
 std::mutex mtx_done;
+ros::Publisher pub_initial;
+ros::Publisher pub_cloud;
+ros::Publisher pub_pose;
+ros::Publisher pub_name;
+ros::Publisher pub_num;
+ros::Subscriber sub_final;
+ros::Subscriber sub_vel;
+ros::Subscriber sub_done;
+ros::ServiceClient client;
+
+
+bool processing_done = false;
+int cnt = 0;
+bool select_map_flag = false;
+float vel_thresh;
+int count_thresh;
 
 std::vector<std::string> listFiles(const std::string& directory,const std::string & ext) {
     std::vector<std::string> total_names;
@@ -29,74 +45,37 @@ std::vector<std::string> listFiles(const std::string& directory,const std::strin
 void finalNameCallback(const std_msgs::String::ConstPtr& msg){
 
     std::string final_name = msg->data;
-    
-    // std::vector<float> pose_array;
-    // std::string map_path;
-    // int interval;
-    // ros::param::get("interval", interval);
-    // ros::param::get(final_name, pose_array);
-    // ros::param::get("map_path", map_path);
-
-
-    // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    // std::string map_pcd ="";
-    // if (pcl::io::loadPCDFile(map_pcd, *cloud) < 0) {
-    //     ROS_ERROR_STREAM("Failed to parse pointcloud from file '" << map_pcd << "'");
-    //     continue;
-    // }
-
-    // geometry_msgs::PoseWithCovarianceStamped pose_msg;
-    // pose_msg.pose.pose.position.x = pose_array[0];
-    // pose_msg.pose.pose.position.y = pose_array[1];
-    // pose_msg.pose.pose.position.z = pose_array[2];
-    // pose_msg.pose.pose.orientation.x = pose_array[3];
-    // pose_msg.pose.pose.orientation.y = pose_array[4];
-    // pose_msg.pose.pose.orientation.z = pose_array[5];
-    // pose_msg.pose.pose.orientation.w = pose_array[6];
-    // pose_msg.header.stamp = ros::Time::now();
-    // pose_msg.header.frame_id = "map";
-    // pub_ini.publish(pose_msg);
-    // ROS_INFO("publish initial pose done!");
-
-
-    // std::string kill_process = "kill $(ps -aux | grep 'roslaunch fast_lio_localization' | grep -v grep | awk '{print $2}')";
-    // std::system(kill_process.c_str());
-    // ros::Duration(1.0).sleep();
-
-    // std::string start_pcl_ros = "rosrun pcl_ros pcd_to_pointcloud " + map_path + "/" + final_name + ".pcd " + std::to_string(interval) +" _frame_id:=map cloud_pcd:=/map";
-    // std::system(start_pcl_ros.c_str());
-    // ros::Duration(1.0).sleep();
-
-    // std::string start_localize = "roslaunch fast_lio_localization localization_horizon_test.launch";
-    // std::system(start_localize.c_str());
-    // ros::Duration(10.0).sleep();
-
 
 }
 
-bool processing_done = false;
+
+void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
+
+   double velocity =  msg->data;
+
+   if(velocity < vel_thresh ){
+        cnt++;
+   }else{
+        select_map_flag = false;
+        cnt = 0;
+   }
+ 
+    if(cnt > count_thresh){
+        select_map_flag = true;
+    }
+
+}
+
 
 void doneCallback(const std_msgs::Bool::ConstPtr& msg) {
 
     std::lock_guard<std::mutex> lock(mtx_done);
     processing_done = msg->data;
-    ROS_INFO("pub_data = %d\n", processing_done);
+    ROS_INFO("pub_data = %d", processing_done);
 }
 
 void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
-    std::string cloud_topic;
-    nh.getParam("cloud_topic",  cloud_topic);
 
-    ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>(cloud_topic, 1);
-    ros::Subscriber done_sub = nh.subscribe("/processing_done", 1, doneCallback);
-    ros::Publisher pub_pose = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/pose_topic", 1);
-    ros::Publisher pub_name = nh.advertise<std_msgs::String>("/map_name", 1);
-    ros::Publisher pub_num = nh.advertise<std_msgs::Int32>("/map_num", 1);
-    ros::Subscriber sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
-    pub_ini = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
-
-
-    ros::ServiceClient client = nh.serviceClient<std_srvs::SetBool>("/set_bool");
     std_srvs::SetBool srv;
     srv.request.data = true;  
 
@@ -105,14 +84,13 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
     while(!client.call(srv)){
         ROS_WARN("Please roslaunch fast_lio_localization localization_horizon_test.launch !");
         ros::Duration(1).sleep();
-
     }
     ROS_INFO(BLUE "Response: success=%s, message=%s" RESET, srv.response.success ? "true" : "false", srv.response.message.c_str());
 
 
-    ros::Rate rate(1);  
+    ros::Rate rate(10);  
 
-    ros::Duration(1).sleep();
+    ros::Duration(0.5).sleep();
 
     std::vector<std::string> test_maps;
 
@@ -138,13 +116,13 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         ROS_INFO("map_name = %s", map_name.c_str());
         std::vector<float> pose;
         nh.getParam(map_name, pose);
-      
+         
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
         if (pcl::io::loadPCDFile(map_pcd, *cloud) < 0) {
             ROS_ERROR_STREAM("Failed to parse pointcloud from file '" << map_pcd << "'");
             continue;
         }
-   
+        
         std_msgs::String name_msg;
         name_msg.data = map_name;
         pub_name.publish(name_msg);
@@ -186,8 +164,8 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         ROS_INFO_STREAM(" * Channel names: " << pcl::getFieldsList(cloud_msg));
         
 
-        pub.publish(cloud_msg);
-        ROS_INFO_STREAM(" * pub cloud done!");
+        pub_cloud.publish(cloud_msg);
+        ROS_INFO_STREAM(" * pub_cloud cloud done!");
 
         
         while (!processing_done) {
@@ -203,7 +181,7 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
 
 
 int main(int argc, char* argv[]) {
-
+    
 
     ros::init(argc, argv, "pub_cloud");
     ros::NodeHandle nh;
@@ -214,14 +192,40 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    ros::param::get("vel_thresh",vel_thresh);
+    ros::param::get("count_thresh",count_thresh);
+
+    std::string cloud_topic;
+    nh.getParam("cloud_topic",  cloud_topic);
+
+    sub_vel = nh.subscribe("/current_velocity",1, velocityCallback);
+    pub_cloud = nh.advertise<sensor_msgs::PointCloud2>(cloud_topic, 1);
+    sub_done = nh.subscribe("/processing_done", 1, doneCallback);
+    pub_pose = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/pose_topic", 1);
+    pub_name = nh.advertise<std_msgs::String>("/map_name", 1);
+    pub_num = nh.advertise<std_msgs::Int32>("/map_num", 1);
+    sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
+    pub_initial = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
+    client = nh.serviceClient<std_srvs::SetBool>("/set_bool");
+
+
     auto maps = listFiles(map_path, ".pcd");
 
     if (maps.empty()) {
         ROS_WARN("No PCD files found in directory '%s'", map_path.c_str());
-    } else {
+        return 0;
+    } else{
         loadAndPublish(maps, nh);
     }
-    ros::spin();
 
-    return 0;
+    ros::Rate rate(10);  
+
+    while(ros::ok() ){
+        while(select_map_flag){
+            loadAndPublish(maps, nh);
+            ros::spinOnce();
+            rate.sleep();
+        }
+    }
+
 }
