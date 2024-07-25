@@ -2,7 +2,7 @@
 
     <include file="$(find fast_lio_localization)/launch/localization_horizon_test.launch"/>
 
-    <node pkg="convert_pcds_to_pointcloud" type="pub_cloud" name="pub_cloud" output="screen" /> 
+    <node pkg="convert_pcds_to_pointcloud" type="pub_cloud" name="pub_cloud" output="screen" launch-prefix="xterm -e" /> 
     <node pkg="convert_pcds_to_pointcloud" type="sub_odometry" name="sub_odometry" output="screen"  launch-prefix="xterm -e"/> 
 
     <!-- <node pkg="convert_pcds_to_pointcloud" type="sub_cloud.py" name="sub_cloud_py" output="screen"  launch-prefix="xterm -e"/> 
@@ -14,7 +14,7 @@
     <param name="cloud_topic" type="string" value="/cloud_pcd"/>
     <param name="interval" type="int" value="10"/>
     <param name="count_thresh" type="int" value="100"/>
-    <param name="vel_thresh" type="double" value="-1"/>
+    <param name="vel_thresh" type="double" value="0.5"/>
 
 
     <!-- <arg name="rviz" default="false" />

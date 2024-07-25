@@ -66,6 +66,7 @@ void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
     if(cnt > count_thresh){
         select_map_flag = true;
     }
+    ROS_INFO("velocity count = %d",cnt);
 
 }
 
@@ -92,7 +93,7 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
     ROS_INFO(BLUE "Response: success=%s, message=%s" RESET, srv.response.success ? "true" : "false", srv.response.message.c_str());
 
 
-    ros::Rate rate(10);  
+    ros::Rate rate(100);  
 
     ros::Duration(0.5).sleep();
 
@@ -198,7 +199,7 @@ int main(int argc, char* argv[]) {
     std::string cloud_topic;
     nh.getParam("cloud_topic",  cloud_topic);
 
-    sub_vel = nh.subscribe("/current_velocity",1, velocityCallback);
+    sub_vel = nh.subscribe("/current_velocity",1000, velocityCallback);
     pub_cloud = nh.advertise<sensor_msgs::PointCloud2>(cloud_topic, 1);
     sub_done = nh.subscribe("/processing_done", 1, doneCallback);
     pub_pose = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/pose_topic", 1);
@@ -217,14 +218,15 @@ int main(int argc, char* argv[]) {
         loadAndPublish(maps, nh);
     }
 
-    ros::Rate rate(10);  
+    ros::Rate rate(1000);  
 
     while(ros::ok() ){
         while(select_map_flag){
             loadAndPublish(maps, nh);
-            ros::spinOnce();
-            rate.sleep();
+  
         }
+        ros::spinOnce();
+        rate.sleep();
     }
 
 }
