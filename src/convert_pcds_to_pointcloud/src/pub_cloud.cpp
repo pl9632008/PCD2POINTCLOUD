@@ -9,10 +9,14 @@
 #include <std_srvs/SetBool.h>
 #include <mutex>
 #include <iostream>
+#include <atomic>
 #define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
 std::mutex mtx_done;
+std::mutex mtx_cnt;
+std::mutex mtx_select;
+
 ros::Publisher pub_initial;
 ros::Publisher pub_cloud;
 ros::Publisher pub_pose;
@@ -25,8 +29,8 @@ ros::ServiceClient client;
 
 
 bool processing_done = false;
-int cnt = 0;
-bool select_map_flag = false;
+std::atomic<int> cnt = 0;
+std::atomic<bool> select_map_flag = false;
 float vel_thresh;
 int count_thresh;
 int test_maps_size;
@@ -223,7 +227,8 @@ int main(int argc, char* argv[]) {
     while(ros::ok() ){
         while(select_map_flag){
             loadAndPublish(maps, nh);
-  
+            select_map_flag = false;
+            cnt=0;
         }
         ros::spinOnce();
         rate.sleep();
