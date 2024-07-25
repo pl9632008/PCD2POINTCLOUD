@@ -9,7 +9,7 @@
     <param name="cloud_topic" type="string" value="/cloud_pcd"/>
     <param name="interval" type="int" value="10"/>
     <param name="count_thresh" type="int" value="100"/>
-    <param name="vel_thresh" type="float" value="-1"/>
+    <param name="vel_thresh" type="double" value="-1"/>
 
 
     <arg name="rviz" default="false" />

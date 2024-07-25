@@ -29,6 +29,9 @@ int cnt = 0;
 bool select_map_flag = false;
 float vel_thresh;
 int count_thresh;
+int test_maps_size;
+int cur_map_cnt = 0;
+
 
 std::vector<std::string> listFiles(const std::string& directory,const std::string & ext) {
     std::vector<std::string> total_names;
@@ -71,7 +74,8 @@ void doneCallback(const std_msgs::Bool::ConstPtr& msg) {
 
     std::lock_guard<std::mutex> lock(mtx_done);
     processing_done = msg->data;
-    ROS_INFO("pub_data = %d", processing_done);
+    cur_map_cnt++;
+    ROS_INFO("processing_done = %s , already done = %d / %d ", processing_done ? "true":"false",cur_map_cnt,test_maps_size);
 }
 
 void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
@@ -105,10 +109,11 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         }
     }
     
-    
+    test_maps_size = test_maps.size();
     std_msgs::Int32 num_msg;
-    num_msg.data = test_maps.size();
+    num_msg.data = test_maps_size;
     pub_num.publish(num_msg);
+    cur_map_cnt = 0;
  
     for (const auto& map_pcd : test_maps) {
 
@@ -128,9 +133,6 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         pub_name.publish(name_msg);
 
 
-        for(int i = 0 ; i < pose.size() ; i++){
-            ROS_INFO("%f ",pose[i]);
-        }
         geometry_msgs::PoseWithCovarianceStamped pose_msg;
         pose_msg.pose.pose.position.x = pose[0];
         pose_msg.pose.pose.position.y = pose[1];
@@ -142,10 +144,10 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         pose_msg.header.stamp = ros::Time::now();
         pose_msg.header.frame_id = "map";
 
-        ROS_INFO("Current PoseWithCovarianceStamped: [%.2f, %.2f, %.2f], [%.2f, %.2f, %.2f, %.2f]",
-                pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z,
-                pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y,
-                pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
+        // ROS_INFO("Current PoseWithCovarianceStamped: [%.2f, %.2f, %.2f], [%.2f, %.2f, %.2f, %.2f]",
+        //         pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z,
+        //         pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y,
+        //         pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
 
         pub_pose.publish(pose_msg);    
 
@@ -161,9 +163,7 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         ROS_INFO_STREAM(" * Loaded pointcloud from file: " << map_pcd);
         ROS_INFO_STREAM(" * Number of points: " << cloud->width * cloud->height);
         ROS_INFO_STREAM(" * Total size [bytes]: " << cloud_msg.data.size());
-        ROS_INFO_STREAM(" * Channel names: " << pcl::getFieldsList(cloud_msg));
         
-
         pub_cloud.publish(cloud_msg);
         ROS_INFO_STREAM(" * pub_cloud cloud done!");
 
@@ -207,7 +207,6 @@ int main(int argc, char* argv[]) {
     sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
     pub_initial = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
     client = nh.serviceClient<std_srvs::SetBool>("/set_bool");
-
 
     auto maps = listFiles(map_path, ".pcd");
 
