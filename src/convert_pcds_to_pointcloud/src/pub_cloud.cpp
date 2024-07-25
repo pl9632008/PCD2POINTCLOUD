@@ -13,10 +13,6 @@
 #define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
-std::mutex mtx_done;
-std::mutex mtx_cnt;
-std::mutex mtx_select;
-
 ros::Publisher pub_initial;
 ros::Publisher pub_cloud;
 ros::Publisher pub_pose;
@@ -27,15 +23,13 @@ ros::Subscriber sub_vel;
 ros::Subscriber sub_done;
 ros::ServiceClient client;
 
-
-bool processing_done = false;
-std::atomic<int> cnt = 0;
+std::atomic<bool> processing_done = false;
 std::atomic<bool> select_map_flag = false;
+std::atomic<int> cur_map_cnt = 0;
+std::atomic<int> cnt = 0;
 float vel_thresh;
 int count_thresh;
 int test_maps_size;
-int cur_map_cnt = 0;
-
 
 std::vector<std::string> listFiles(const std::string& directory,const std::string & ext) {
     std::vector<std::string> total_names;
@@ -70,17 +64,16 @@ void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
     if(cnt > count_thresh){
         select_map_flag = true;
     }
-    ROS_INFO("velocity count = %d",cnt);
+    ROS_INFO("velocity count = %d",cnt.load());
 
 }
 
 
 void doneCallback(const std_msgs::Bool::ConstPtr& msg) {
 
-    std::lock_guard<std::mutex> lock(mtx_done);
-    processing_done = msg->data;
+    processing_done = msg->data ;
     cur_map_cnt++;
-    ROS_INFO("processing_done = %s , already done = %d / %d ", processing_done ? "true":"false",cur_map_cnt,test_maps_size);
+    ROS_INFO("processing_done = %s , already done = %d / %d ", processing_done.load() ? "true":"false", cur_map_cnt.load(), test_maps_size);
 }
 
 void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
@@ -177,7 +170,6 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
             ros::spinOnce();
             rate.sleep();
         }
-        std::lock_guard<std::mutex> lock(mtx_done);
         processing_done = false;  // 重置标志，准备发布下一个点云
 
     }
