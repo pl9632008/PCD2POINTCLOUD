@@ -233,7 +233,7 @@ int main(int argc, char* argv[]) {
     ros::Rate rate(1000);  
 
     while(ros::ok() ){
-        if(select_map_flag){
+        if(select_map_flag&& !doing_loadandpublish){
             loadAndPublish(maps, nh);
             select_map_flag = false;
             cnt=0;
