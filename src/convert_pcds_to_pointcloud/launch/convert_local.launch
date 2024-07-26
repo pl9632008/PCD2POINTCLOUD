@@ -9,11 +9,12 @@
     <node pkg="convert_pcds_to_pointcloud" type="sub_cloud" name="sub_cloud" output="screen"  launch-prefix="xterm -e"/>  -->
     <rosparam command="load" file="$(find convert_pcds_to_pointcloud)/config/config.yaml"/>
 
-    <param name="map_path" type="string" value="/home/nvidia/wjd/fastlio/src/FAST_LIO/PCD"/>
+    <param name="map_path" type="string" value="/home/wheeltec/wjd/fastlio/src/FAST_LIO/PCD"/>
     <param name="frame_id" type="string" value="map"/>
     <param name="cloud_topic" type="string" value="/cloud_pcd"/>
-    <param name="count_thresh" type="int" value="60"/>
+    <param name="count_thresh" type="int" value="80"/>
     <param name="vel_thresh" type="double" value="0.5"/>
+    <param name="distance_thresh" type="double" value="50"/>
 
 
     <!-- <arg name="rviz" default="false" />

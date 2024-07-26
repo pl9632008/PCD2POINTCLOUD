@@ -7,10 +7,12 @@
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <nav_msgs/Odometry.h>
 #include <std_srvs/SetBool.h>
 #include <mutex>
 #include <iostream>
 #include <atomic>
+
 #define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
@@ -23,6 +25,7 @@ ros::Publisher pub_num;
 ros::Subscriber sub_final;
 ros::Subscriber sub_vel;
 ros::Subscriber sub_done;
+ros::Subscriber sub_odometry;
 ros::ServiceClient client;
 
 std::atomic<bool> doing_loadandpublish = true;
@@ -34,6 +37,16 @@ float vel_thresh;
 int count_thresh;
 int test_maps_size;
 
+std::mutex mtx_odometry;
+double g_cur_x = 0;
+double g_cur_y = 0;
+double g_cur_z = 0;
+bool init_flag = false;
+double distance_thresh = 0;
+double g_before_x = 0;
+double g_before_y = 0;
+double g_before_z = 0;
+
 std::vector<std::string> listFiles(const std::string& directory,const std::string & ext) {
     std::vector<std::string> total_names;
     std::filesystem::path p(directory);
@@ -44,6 +57,19 @@ std::vector<std::string> listFiles(const std::string& directory,const std::strin
     }
     return total_names;
 }
+
+
+void odometryCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+    std::lock_guard<std::mutex> lock(mtx_odometry);
+    g_cur_x = msg->pose.pose.position.x;
+    g_cur_y = msg->pose.pose.position.y;
+    g_cur_z = msg->pose.pose.position.z;
+    
+}
+
+
+
 
 
 void finalNameCallback(const std_msgs::String::ConstPtr& msg){
@@ -87,6 +113,38 @@ void doneCallback(const std_msgs::Bool::ConstPtr& msg) {
 }
 
 void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
+
+    if(init_flag==false){
+
+        std::lock_guard<std::mutex> lock(mtx_odometry);
+        g_before_x = g_cur_x;
+        g_before_y = g_cur_y;
+        g_before_z = g_cur_z;
+        init_flag = true;
+    }else {
+
+        std::lock_guard<std::mutex> lock(mtx_odometry);
+        double diff_x = g_cur_x - g_before_x;
+        double diff_y = g_cur_y - g_before_y;
+        double diff_z = g_cur_z - g_before_z;
+        double distance = std::sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
+
+        g_before_x = g_cur_x;
+        g_before_y = g_cur_y;
+        g_before_z = g_cur_z;
+
+
+        if(distance < distance_thresh){
+            ROS_INFO("moving  %f m, less than %f m, pass loadAndPublish", distance, distance_thresh);
+            return;
+        }else{
+
+            ROS_INFO("moving  %f m, greater than %f m, doing loadAndPublish", distance, distance_thresh);
+
+        }
+    }
+ 
+
 
     std_srvs::SetBool srv;
     srv.request.data = true;  
@@ -208,6 +266,7 @@ int main(int argc, char* argv[]) {
 
     ros::param::get("vel_thresh",vel_thresh);
     ros::param::get("count_thresh",count_thresh);
+    ros::param::get("distance_thresh",distance_thresh);
 
     std::string cloud_topic;
     nh.getParam("cloud_topic",  cloud_topic);
@@ -221,6 +280,8 @@ int main(int argc, char* argv[]) {
     pub_num = nh.advertise<std_msgs::Int32>("/map_num", 1);
     sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
     pub_initial = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
+    sub_odometry = nh.subscribe<nav_msgs::Odometry>("/Odometry",10,odometryCallback);
+
     client = nh.serviceClient<std_srvs::SetBool>("/set_bool");
 
     auto maps = listFiles(map_path, ".pcd");
