@@ -25,6 +25,7 @@ ros::Subscriber sub_vel;
 ros::Subscriber sub_done;
 ros::ServiceClient client;
 
+std::atomic<bool> doing_loadandpublish = true;
 std::atomic<bool> processing_done = false;
 std::atomic<bool> select_map_flag = false;
 std::atomic<int> cur_map_cnt = 0;
@@ -53,6 +54,11 @@ void finalNameCallback(const std_msgs::String::ConstPtr& msg){
 
 
 void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
+
+    if(doing_loadandpublish){
+        cnt = 0;
+        ROS_INFO("selecting maps now, do not count velocity return");
+    }
 
    double velocity =  msg->data;
 
@@ -115,6 +121,7 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
     pub_num.publish(num_msg);
     cur_map_cnt = 0;
  
+    doing_loadandpublish = true;
     for (const auto& map_pcd : test_maps) {
 
         std::string map_name = std::filesystem::path(map_pcd).stem().string();
@@ -181,7 +188,7 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         processing_done = false;  // 重置标志，准备发布下一个点云
 
     }
-
+    doing_loadandpublish = false;
 }
 
 
