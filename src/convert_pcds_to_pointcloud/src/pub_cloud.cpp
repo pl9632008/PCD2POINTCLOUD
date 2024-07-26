@@ -59,6 +59,7 @@ void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
         select_map_flag = false;
         cnt = 0;
         ROS_INFO("selecting maps now, do not count velocity return");
+        return;
     }
 
    double velocity =  msg->data;
@@ -211,7 +212,7 @@ int main(int argc, char* argv[]) {
     std::string cloud_topic;
     nh.getParam("cloud_topic",  cloud_topic);
 
-    sub_vel = nh.subscribe("/current_velocity",1000, velocityCallback);
+    sub_vel = nh.subscribe("/current_velocity",100, velocityCallback);
     pub_cloud = nh.advertise<sensor_msgs::PointCloud2>(cloud_topic, 1);
     sub_done = nh.subscribe("/processing_done", 1, doneCallback);
     pub_pose = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/pose_topic", 1);
@@ -231,7 +232,7 @@ int main(int argc, char* argv[]) {
         loadAndPublish(maps, nh);
     }
 
-    ros::Rate rate(1000);  
+    ros::Rate rate(100);  
 
     while(ros::ok() ){
         if(select_map_flag&& !doing_loadandpublish){
