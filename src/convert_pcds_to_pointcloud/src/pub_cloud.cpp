@@ -56,6 +56,7 @@ void finalNameCallback(const std_msgs::String::ConstPtr& msg){
 void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
 
     if(doing_loadandpublish){
+        select_map_flag = false;
         cnt = 0;
         ROS_INFO("selecting maps now, do not count velocity return");
     }
