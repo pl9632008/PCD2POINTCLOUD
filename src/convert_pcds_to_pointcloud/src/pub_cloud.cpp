@@ -5,6 +5,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/Float64MultiArray.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <std_srvs/SetBool.h>
 #include <mutex>
@@ -16,6 +17,7 @@
 ros::Publisher pub_initial;
 ros::Publisher pub_cloud;
 ros::Publisher pub_pose;
+ros::Publisher pub_pose_arr;
 ros::Publisher pub_name;
 ros::Publisher pub_num;
 ros::Subscriber sub_final;
@@ -131,23 +133,29 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         pub_name.publish(name_msg);
 
 
-        geometry_msgs::PoseWithCovarianceStamped pose_msg;
-        pose_msg.pose.pose.position.x = pose[0];
-        pose_msg.pose.pose.position.y = pose[1];
-        pose_msg.pose.pose.position.z = pose[2];
-        pose_msg.pose.pose.orientation.x = pose[3];
-        pose_msg.pose.pose.orientation.y = pose[4];
-        pose_msg.pose.pose.orientation.z = pose[5];
-        pose_msg.pose.pose.orientation.w = pose[6];
-        pose_msg.header.stamp = ros::Time::now();
-        pose_msg.header.frame_id = "map";
+        std_msgs::Float64MultiArray pose_array_msg;
+        for(int i = 0; i < pose.size(); i++){
+            pose_array_msg.data.push_back(pose[i]);
+        }
+        pub_pose_arr.publish(pose_array_msg);
+
+
+        // geometry_msgs::PoseWithCovarianceStamped pose_msg;
+        // pose_msg.pose.pose.position.x = pose[0];
+        // pose_msg.pose.pose.position.y = pose[1];
+        // pose_msg.pose.pose.position.z = pose[2];
+        // pose_msg.pose.pose.orientation.x = pose[3];
+        // pose_msg.pose.pose.orientation.y = pose[4];
+        // pose_msg.pose.pose.orientation.z = pose[5];
+        // pose_msg.pose.pose.orientation.w = pose[6];
+        // pose_msg.header.stamp = ros::Time::now();
+        // pose_msg.header.frame_id = "map";
+        // pub_pose.publish(pose_msg);    
 
         // ROS_INFO("Current PoseWithCovarianceStamped: [%.2f, %.2f, %.2f], [%.2f, %.2f, %.2f, %.2f]",
         //         pose_msg.pose.pose.position.x, pose_msg.pose.pose.position.y, pose_msg.pose.pose.position.z,
         //         pose_msg.pose.pose.orientation.x, pose_msg.pose.pose.orientation.y,
         //         pose_msg.pose.pose.orientation.z, pose_msg.pose.pose.orientation.w);
-
-        pub_pose.publish(pose_msg);    
 
 
         sensor_msgs::PointCloud2 cloud_msg;
@@ -199,6 +207,7 @@ int main(int argc, char* argv[]) {
     pub_cloud = nh.advertise<sensor_msgs::PointCloud2>(cloud_topic, 1);
     sub_done = nh.subscribe("/processing_done", 1, doneCallback);
     pub_pose = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/pose_topic", 1);
+    pub_pose_arr = nh.advertise<std_msgs::Float64MultiArray>("/pose_arr_topic",1);
     pub_name = nh.advertise<std_msgs::String>("/map_name", 1);
     pub_num = nh.advertise<std_msgs::Int32>("/map_num", 1);
     sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
@@ -217,7 +226,7 @@ int main(int argc, char* argv[]) {
     ros::Rate rate(1000);  
 
     while(ros::ok() ){
-        while(select_map_flag){
+        if(select_map_flag){
             loadAndPublish(maps, nh);
             select_map_flag = false;
             cnt=0;
