@@ -1,10 +1,8 @@
 <launch>
 
-    <include file="$(find fast_lio_localization)/launch/localization_horizon_test.launch"/>
+    <!-- <include file="$(find fast_lio_localization)/launch/localization_horizon_test.launch"/> -->
 
-    <node pkg="convert_pcds_to_pointcloud" type="pub_cloud" name="pub_cloud" output="screen" launch-prefix="xterm -e" /> 
-    <node pkg="convert_pcds_to_pointcloud" type="sub_odometry" name="sub_odometry" output="screen" launch-prefix="xterm -e"  /> 
-    <!-- <node pkg="convert_pcds_to_pointcloud" type="restart_local" name="restart_local" output="screen" launch-prefix="xterm -e"  />  -->
+    <node pkg="convert_pcds_to_pointcloud" type="restart_local" name="restart_local" output="screen" launch-prefix="xterm -e"  /> 
 
 
     <!-- <node pkg="convert_pcds_to_pointcloud" type="sub_cloud.py" name="sub_cloud_py" output="screen"  launch-prefix="xterm -e"/> 

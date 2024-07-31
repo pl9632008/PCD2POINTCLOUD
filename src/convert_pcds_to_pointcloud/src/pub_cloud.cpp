@@ -16,6 +16,7 @@
 #define BLUE "\033[1;34m"
 #define RESET "\033[0m"
 
+ros::Publisher pub_restart;
 ros::Publisher pub_initial;
 ros::Publisher pub_cloud;
 ros::Publisher pub_pose;
@@ -27,6 +28,8 @@ ros::Subscriber sub_vel;
 ros::Subscriber sub_done;
 ros::Subscriber sub_odometry;
 ros::ServiceClient client;
+
+std::atomic<bool> pub_restart_flag = false;
 
 std::atomic<bool> doing_loadandpublish = true;
 std::atomic<bool> processing_done = false;
@@ -81,12 +84,17 @@ void finalNameCallback(const std_msgs::String::ConstPtr& msg){
 
 void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
 
-    if(doing_loadandpublish){
-        select_map_flag = false;
-        cnt = 0;
-        ROS_INFO("selecting maps now, do not count velocity return");
-        return;
-    }
+    // if(doing_loadandpublish){
+    //     select_map_flag = false;
+    //     cnt = 0;
+    //     ROS_INFO("selecting maps now, do not count velocity return");
+    //     return;
+    // }
+    
+    // if(pub_restart_flag){
+    //     return ;
+    // }
+
 
    double velocity =  msg->data;
 
@@ -98,6 +106,19 @@ void velocityCallback(const std_msgs::Float64::ConstPtr& msg){
    }
  
     if(cnt > count_thresh){
+
+        // std::string pid_cmd = "$(ps -aux | grep 'fast_lio_localization ' | grep -v grep | awk '{print $2}')";
+        // std::string kill_cmd = "xterm -e rosnode kill /global_localization /laserMapping /transform_fusion /rviz";
+        // std::system(kill_cmd.c_str());
+
+        // std::string restart_cmd = "xterm -e  roslaunch fast_lio_localization localization_horizon_test.launch";
+        // std::system(restart_cmd.c_str());
+        std_msgs::Bool bool_msg;
+        bool_msg.data = true;
+        pub_restart.publish(bool_msg);
+        pub_restart_flag = true;
+
+
         select_map_flag = true;
     }
     ROS_INFO("velocity count = %d",cnt.load());
@@ -144,6 +165,7 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
         }
     }
  
+    doing_loadandpublish = true;
 
 
     std_srvs::SetBool srv;
@@ -174,14 +196,18 @@ void loadAndPublish(const std::vector<std::string>& maps, ros::NodeHandle& nh) {
             test_maps.push_back(map_pcd);
         }
     }
+    for(auto ddd : test_maps){
+        ROS_ERROR(" ddd = %s", ddd.c_str());
+
+    }
     
+
     test_maps_size = test_maps.size();
     std_msgs::Int32 num_msg;
     num_msg.data = test_maps_size;
     pub_num.publish(num_msg);
     cur_map_cnt = 0;
  
-    doing_loadandpublish = true;
     for (const auto& map_pcd : test_maps) {
 
         std::string map_name = std::filesystem::path(map_pcd).stem().string();
@@ -281,6 +307,7 @@ int main(int argc, char* argv[]) {
     sub_final = nh.subscribe("/final_name", 1, finalNameCallback);
     pub_initial = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
     sub_odometry = nh.subscribe<nav_msgs::Odometry>("/Odometry",10,odometryCallback);
+    pub_restart = nh.advertise<std_msgs::Bool>("/restart_flag",1);
 
     client = nh.serviceClient<std_srvs::SetBool>("/set_bool");
 
@@ -293,16 +320,18 @@ int main(int argc, char* argv[]) {
         loadAndPublish(maps, nh);
     }
 
-    ros::Rate rate(100);  
+    ros::spin();
 
-    while(ros::ok() ){
-        if(select_map_flag&& !doing_loadandpublish){
-            loadAndPublish(maps, nh);
-            select_map_flag = false;
-            cnt=0;
-        }
-        ros::spinOnce();
-        rate.sleep();
-    }
+    // ros::Rate rate(100);  
+
+    // while(ros::ok() ){
+    //     if(select_map_flag&& !doing_loadandpublish){
+    //         loadAndPublish(maps, nh);
+    //         select_map_flag = false;
+    //         cnt=0;
+    //     }
+    //     ros::spinOnce();
+    //     rate.sleep();
+    // }
 
 }

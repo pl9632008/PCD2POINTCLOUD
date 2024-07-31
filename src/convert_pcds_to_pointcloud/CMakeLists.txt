@@ -144,6 +144,7 @@ add_executable(sub_cloud src/sub_cloud.cpp)
 
 add_executable(sub_odometry src/sub_odometry.cpp)
 
+add_executable(restart_local src/restart_local.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -171,6 +172,11 @@ target_link_libraries(sub_odometry
   ${PCL_LIBRARIES}
 )
 
+
+target_link_libraries(restart_local
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
 
 #############
 ## Install ##
