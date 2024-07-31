@@ -1,7 +1,7 @@
 <launch>
     <node pkg="convert_pcds_to_pointcloud" type="restart_local" name="restart_local" output="screen" launch-prefix="xterm -e"  /> 
     <rosparam command="load" file="$(find convert_pcds_to_pointcloud)/config/config.yaml"/>
-    <param name="map_path" type="string" value="/home/wheeltec/wjd/fastlio/src/FAST_LIO/PCD"/>
+    <param name="map_path" type="string" value="/home/nvidia/wjd/fastlio/src/FAST_LIO/PCD"/>
     <param name="frame_id" type="string" value="map"/>
     <param name="cloud_topic" type="string" value="/cloud_pcd"/>
     <param name="count_thresh" type="int" value="50"/>

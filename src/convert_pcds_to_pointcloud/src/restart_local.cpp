@@ -5,7 +5,6 @@
 #include <thread>
 
 ros::Subscriber sub_odometry;
-ros::Subscriber sub_restart;
 double g_cur_x = 0;
 double g_cur_y = 0;
 double g_cur_z = 0;
