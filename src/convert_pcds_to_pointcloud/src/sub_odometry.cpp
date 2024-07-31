@@ -80,19 +80,9 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "odometry_subscriber");
     ros::NodeHandle nh;
 
-
-
     ros::Subscriber sub = nh.subscribe("/Odometry", 1, odometryCallback);
     pub_vec = nh.advertise<std_msgs::Float64>("/current_velocity", 1);
 
-    // ros::Rate rate(100);
-
-    // while (ros::ok())
-    // {
-    //     ros::spinOnce();
-    //     rate.sleep();
-    // }
-    
     ros::spin();
     
     return 0;
