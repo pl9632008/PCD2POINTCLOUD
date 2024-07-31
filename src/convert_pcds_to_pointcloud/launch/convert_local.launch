@@ -1,28 +1,12 @@
 <launch>
-
     <include file="$(find fast_lio_localization)/launch/localization_horizon_test.launch"/>
-
     <node pkg="convert_pcds_to_pointcloud" type="pub_cloud" name="pub_cloud" output="screen" launch-prefix="xterm -e" /> 
     <node pkg="convert_pcds_to_pointcloud" type="sub_odometry" name="sub_odometry" output="screen" launch-prefix="xterm -e"  /> 
-    <!-- <node pkg="convert_pcds_to_pointcloud" type="restart_local" name="restart_local" output="screen" launch-prefix="xterm -e"  />  -->
-
-
-    <!-- <node pkg="convert_pcds_to_pointcloud" type="sub_cloud.py" name="sub_cloud_py" output="screen"  launch-prefix="xterm -e"/> 
-    <node pkg="convert_pcds_to_pointcloud" type="sub_cloud" name="sub_cloud" output="screen"  launch-prefix="xterm -e"/>  -->
     <rosparam command="load" file="$(find convert_pcds_to_pointcloud)/config/config.yaml"/>
-
     <param name="map_path" type="string" value="/home/wheeltec/wjd/fastlio/src/FAST_LIO/PCD"/>
     <param name="frame_id" type="string" value="map"/>
     <param name="cloud_topic" type="string" value="/cloud_pcd"/>
     <param name="count_thresh" type="int" value="50"/>
     <param name="vel_thresh" type="double" value="0.5"/>
     <param name="distance_thresh" type="double" value="60"/>
-
-
-    <!-- <arg name="rviz" default="false" />
-
-	<group if="$(arg rviz)">
-		<node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find fast_lio_localization)/rviz_cfg/localization.rviz" />
-	</group> -->
-
 </launch>
